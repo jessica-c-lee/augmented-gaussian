@@ -12,11 +12,11 @@ The augmented Gaussian has 4 parameters that allow it to fit asymmetrical gradie
 * height: the height (peak) of the gradient
 
 ## How to use
-* Open the .Rproj file, add your data file to the "data" folder, input parameters in the index.R file and follow the commented example.
+* Open the .Rproj file, add your data file to the "data" folder, input parameters in the index.R file, and run the model following the example.
 * The data file must be in long format, with the grouping variable labelled as "group", the stimulus dimension variable labelled as "x" and the dependent variable labelled as "y" (see demo1.csv)
 
 ## Note
-* The code is set up to fit gradients across 21 test stimuli, with the CS+ at the midpoint of the dimension (coded as 0). All functions use the fixed stimulus values -0.5:0.1:+0.5. These values are arbitrary, but the model specification is dependent on these values.
+* The example code fits gradients with 21 test stimuli, with the CS+ at the midpoint of the dimension (coded as 0). All functions use the fixed stimulus values -0.5:0.1:+0.5. These values are arbitrary, but the model specification is dependent on these values.
 * The code is set up to model responses ranging from 0-100. The model must be re-specified to work with a different range.
 
 ## Output generated
