@@ -2,6 +2,55 @@
 #                                 Functions
 #-------------------------------------------------------------------------------
 
+Simulate_Data <- function(nSubj, nGroups, dimVals, M, H, WM, WP, Noise, fileName) {
+  # This function simulates augmented Gaussian gradients for two groups of N=nSubj
+  # Note
+  # - params is a list of length nGroups, and each item consists of 
+  # a list: M, W1, W2, H, and noise are vectors of length nSubj
+  
+  df <- list()
+  
+  for (g in 1:nGroups) {
+    m <- rnorm(nSubj, M[g], .1)
+    h = rnorm(nSubj, H[g], 1)
+    wm = abs(rnorm(nSubj, WM[g], .1))
+    wp = abs(rnorm(nSubj, WP[g], .1))
+    noise = rep(Noise, nSubj)
+    
+    simData <- matrix(nrow = nSubj, ncol = length(dimVals))
+    
+    for (i in 1:nSubj) {
+      gausLeft <- h[i] * exp(1)^-(((dimVals-m[i])^2) / (2 * wm[i]^2)) + 
+        rnorm(length(dimVals), 0, noise)
+      gausRight <- h[i] * exp(1)^-(((dimVals-m[i])^2) / (2 * wp[i]^2)) + 
+        rnorm(length(dimVals), 0, noise)
+      mIdx <- which.min(abs(dimVals-m[i]))
+      if (mIdx == 1) {
+        simData[i,] <- c(gausLeft[1], gausRight[(mIdx+1):length(dimVals)])
+      } else {
+        simData[i,] <- c(gausLeft[1:(mIdx-1)], gausRight[mIdx:length(dimVals)])
+      }
+    }
+    subj <- rep(1:nSubj + (g-1)*nSubj, each = length(dimVals))
+    x <- rep(dimVals, times = nSubj)
+    y <- as.vector(t(simData))
+    y[y > 100] <- 100
+    y[y < 0] <- 0
+    group <- rep(paste0("group", g), nSubj)
+    df[[g]] <- data.frame(cbind(subj, group, x, y))
+  }
+  
+  out <- do.call("rbind", df) 
+  out <- out %>%
+    mutate(x = as.numeric(as.character(x)),
+           y = as.numeric(as.character(y)),
+           subj = as.numeric(as.character(subj)))
+  
+  write_csv(out, paste0("data/", fileName ,".csv"))
+}
+
+#_______________________________________________________________________________
+
 Read_Gen_Data <- function(fileName, dimVals, groupNames, xBreaks, xLab) {
   
   # This function reads data in long format and prepares the data list for stan
@@ -11,7 +60,7 @@ Read_Gen_Data <- function(fileName, dimVals, groupNames, xBreaks, xLab) {
   # - The dimVals argument does not have to match the "x" column
   # - The CS+ should have a dimVal of 0
   # - Choose appropriate breaks and labels for the x-axis
-  # See demo1.csv for an example
+  # See demo_data.csv for an example
   
   data <- read.csv(fileName, header = TRUE)
   
@@ -280,7 +329,7 @@ Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames,
   
   # 1. read data
   data_list <- Read_Gen_Data(
-    "data/NSW57-Data-Sim.csv", dimVals, groupNames, xBreaks = x_breaks, xLab = x_labs
+    fileName, dimVals, groupNames, xBreaks = x_breaks, xLab = x_labs
   )
   
   # 2. fit models for each group
