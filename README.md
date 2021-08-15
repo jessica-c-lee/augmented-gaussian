@@ -1,7 +1,10 @@
 # augmented-gaussian
 
 Citation:
-Lee, J. C., Mills, L., Hayes, B. K., & Livesey, E. J. (2021). Modelling generalisation gradients as augmented Gaussian functions. *Quarterly Journal of Experimental Psychology, 74(1)*, 106-121. https://doi.org/10.1177/1747021820949470 
+Lee, J. C., Mills, L., Hayes, B. K., & Livesey, E. J. (2021). Modelling generalisation gradients as augmented Gaussian functions. *Quarterly Journal of Experimental Psychology, 74(1)*, 106-121. https://doi.org/10.1177/1747021820949470
+
+Adapted from:
+https://github.com/jessica-c-lee/bayesian-curve-fitting
 
 R code to fit augmented Gaussians to individual generalization gradients in a hierarchical Bayesian model. Uses the [rstan](https://mc-stan.org/users/interfaces/rstan) and [bayestestR](https://github.com/easystats/bayestestR) packages.
 

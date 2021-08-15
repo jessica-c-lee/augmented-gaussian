@@ -43,7 +43,7 @@ Read_Gen_Data <- function(fileName, dimVals, groupNames, xBreaks, xLab) {
   )
   
   gradients <- data %>%
-    arrange(subj, group, dim_val) %>%
+    arrange(subj, group, x) %>%
     mutate(group = fct_relevel(group, groupNames)) %>%
     group_by(group, x) %>%
     summarise(y = mean(y))
