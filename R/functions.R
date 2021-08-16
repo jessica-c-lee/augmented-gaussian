@@ -83,7 +83,7 @@ Read_Gen_Data <- function(fileName, dimVals, groupNames, xBreaks, xLab) {
     geom_line(size = 1.5),
     geom_point(shape = rep(fig_shapes, each=length(dimVals)), fill = "white", size = 2),
     geom_vline(xintercept = 6, linetype = "dotted", colour = "grey"),
-    scale_x_continuous(breaks = xBreaks, labels = xLab),
+    scale_x_continuous(limits = c(min(dimVals), max(dimVals)), breaks = xBreaks, labels = xLab),
     scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)),
     scale_colour_manual(values = density_cols),
     labs(x = "stimulus", y = "mean response"),
