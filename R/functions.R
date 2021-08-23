@@ -4,19 +4,20 @@
 
 Simulate_Data <- function(nSubj, nGroups, dimVals, M, H, WM, WP, Noise, fileName) {
   # This function simulates augmented Gaussian gradients for two groups of N=nSubj
-  # Note
-  # - params is a list of length nGroups, and each item consists of 
-  # a list: M, W1, W2, H, and noise are vectors of length nSubj
+  # M, H, WM, WP, and Noise are vectors of length nGroups
   
   df <- list()
   
   for (g in 1:nGroups) {
+    
+    # generate individual parameters
     m <- rnorm(nSubj, M[g], .1)
     h = rnorm(nSubj, H[g], 1)
     wm = abs(rnorm(nSubj, WM[g], .1))
     wp = abs(rnorm(nSubj, WP[g], .1))
     noise = rep(Noise, nSubj)
     
+    # generate individual gradients
     simData <- matrix(nrow = nSubj, ncol = length(dimVals))
     
     for (i in 1:nSubj) {
@@ -57,7 +58,7 @@ Read_Gen_Data <- function(fileName, dimVals, groupNames, xBreaks, xLab) {
   # Notes
   # - Responses should be labelled as "y", subject ID as "subj", group names 
   # labelled as "group" (and should match groupNames)
-  # - The dimVals argument does not have to match the "x" column
+  # - The dimVals argument does not have to match the labelling of the "x" column
   # - The CS+ should have a dimVal of 0
   # - Choose appropriate breaks and labels for the x-axis
   # See demo_data.csv for an example
@@ -176,22 +177,18 @@ Plot_Densities <- function(samples, modelName, groupNames, paramNames) {
   
   M_fig <- ggplot(estimates, aes(M_group, fill = group)) + 
     density_layers +
-    # scale_x_continuous(breaks = xBreaks, labels = xLab) +
     ggtitle("Mean")
   
   height_fig <- ggplot(estimates, aes(height_group, fill = group)) + 
     density_layers +
-    # scale_x_continuous(limits = c(40, 100), breaks = seq(40, 100, 10)) +
     ggtitle("Height")
   
   SDMinus_fig <- ggplot(estimates, aes(SDMinus_group, fill = group)) + 
     density_layers +
-    # scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, .2)) +
     ggtitle("Width-")
   
   SDPlus_fig <- ggplot(estimates, aes(SDPlus_group, fill = group)) + 
     density_layers +
-    # scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, .2)) +
     ggtitle("Width+")
   
   fig_panel <- M_fig + height_fig + SDMinus_fig + SDPlus_fig +
@@ -201,22 +198,30 @@ Plot_Densities <- function(samples, modelName, groupNames, paramNames) {
 
 #_______________________________________________________________________________
 
-Get_HDIs <- function(samples, modelName, groupName, groupParams, ropeLow, ropeHigh, 
-                     ropeLowDiffs, ropeHighDiffs, hdiLim, propPost = 1) {
+Get_HDIs <- function(samples, modelName, groupName, HDIparams, ropeLow, ropeHigh, 
+                     hdiLim, propPost) {
   
-  temp <- data.frame(param = groupParams,
+  # This function calculates the Highest Density Intervals and 
+  # p(Region of Practical Equivalence) for HDIparams
+  # Note:
+  # - ROPE parameters must be of length(HDIparams) and specified in the 
+  # same order as HDIparams
+  # - hdiLim sets the limit for the HDI
+  # - propPost refers to the proportion of the posterior used to calculate p(direction) and p(ROPE)
+  
+  temp <- data.frame(param = HDIparams,
                      hdi_lim = hdiLim,
-                     hdi_low = rep(NA, length(groupParams)),
-                     hdi_high = rep(NA, length(groupParams)),
-                     p_dir = rep(NA, length(groupParams)),
+                     hdi_low = rep(NA, length(HDIparams)),
+                     hdi_high = rep(NA, length(HDIparams)),
+                     p_dir = rep(NA, length(HDIparams)),
                      rope_low = ropeLow,
                      rope_high = ropeHigh,
-                     prop_rope = rep(NA, length(groupParams)))
-  for (i in 1:length(groupParams)) {
-    temp$hdi_low[i] <- hdi(as.vector(samples[[groupParams[i]]]), ci = hdiLim)$CI_low
-    temp$hdi_high[i] <- hdi(as.vector(samples[[groupParams[i]]]), ci = hdiLim)$CI_high
-    temp$p_dir[i] <- p_direction(as.vector(samples[[groupParams[i]]]), ci = propPost)
-    temp$prop_rope[i] <- rope(as.vector(samples[[groupParams[i]]]), ci = propPost,
+                     prop_rope = rep(NA, length(HDIparams)))
+  for (i in 1:length(HDIparams)) {
+    temp$hdi_low[i] <- hdi(as.vector(samples[[HDIparams[i]]]), ci = hdiLim)$CI_low
+    temp$hdi_high[i] <- hdi(as.vector(samples[[HDIparams[i]]]), ci = hdiLim)$CI_high
+    temp$p_dir[i] <- p_direction(as.vector(samples[[HDIparams[i]]]), ci = propPost)
+    temp$prop_rope[i] <- rope(as.vector(samples[[HDIparams[i]]]), ci = propPost,
                               range = c(ropeLow[i], ropeHigh[i]))$ROPE_Percentage
   }
   
@@ -309,23 +314,11 @@ Posterior_Preds <- function(samples, responses, modelName, groupName, dimVals,
 
 
 #_______________________________________________________________________________
-Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames,  
-                             dimVals, params, groupParams,
-                             ropeLow, ropeHigh, ropeLowDiffs, ropeHighDiffs,
-                             hdiLim = .95, propPost = 1, nSamp,
-                             xBreaks, xLab, nRow, figMult = 2, labels = TRUE) {
+Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames, dimVals, params, 
+                             HDIparams, ropeLow, ropeHigh, hdiLim = .95, propPost = 1, 
+                             nSamp, xBreaks, xLab, nRow, figMult = 2, labels = TRUE) {
   
   # Master function that reads the data file, runs the analysis, and saves output
-  
-  # Note
-  # - groupNames must match those in the data files
-  # - all ROPE parameters must be of length(groupParams) and specified in the 
-  # same order as groupParams
-  # - ropeLow and ropeHigh refer to custom ROPE limits for each parameter
-  # - ropeLowDiffs and ropeHighDiffs refer to custom ROPE limits for the group
-  # difference in each parameter
-  # - hdiLim sets the limit for the HDI
-  # - propPost refers to the proportion of the posterior used to calculate p(direction) and p(ROPE)
   
   # 1. read data
   data_list <- Read_Gen_Data(
@@ -335,15 +328,14 @@ Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames,
   # 2. fit models for each group
   mcmc_out <- vector("list", length(groupNames))
   
-  for (i in 1:length(groupNames)) {
-    mcmc_out[[i]] <- Run_Model(
-      data_list[[1]][[i]], modelName, groupNames[i], "models/AugGaus.stan", params
-    )
-  }
-  samples <- list(mcmc_out[[1]]$samples, mcmc_out[[2]]$samples, mcmc_out[[3]]$samples)
   
+  for (i in 1:length(groupNames)) {
+    mcmc_out[[i]] <- Run_Model(data_list[[1]][[i]], modelName, groupNames[i], modelFile, params)
+    samples[[i]] <- mcmc_out[[i]]$samples
+  }
+
   # 3. plot gradients + posteriors
-  density_fig <- Plot_Densities(samples, modelName, groupNames, groupParams)
+  density_fig <- Plot_Densities(samples, modelName, groupNames, HDIparams)
   fig_panel <- data_list[[2]] + density_fig + plot_layout(widths = c(1, 1.75), guides = "collect")
   ggsave(paste0(file_name_root, modelName, "-density", graph_file_type), fig_panel, 
          "jpeg", height = gg_height, width = gg_width*2.5, units = "cm", dpi = dpi)
@@ -352,8 +344,8 @@ Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames,
   for (i in 1:length(groupNames)) {
     
     # 4. HDIS and posterior summary stats for the group parameters 
-    Get_HDIs(samples[[i]], modelName, groupNames[i], groupParams, rope_low, rope_high, 
-             rope_low_diffs, rope_high_diffs, hdiLim = hdi_limit, propPost = 1)
+    Get_HDIs(samples[[i]], modelName, groupNames[i], HDIparams, rope_low, rope_high, 
+             hdiLim = hdi_limit, propPost = 1)
     
     # 5. plot posterior predictives
     Posterior_Preds(samples[[i]], as.vector(t(data_list[[1]][[i]]$responses)), 
