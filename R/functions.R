@@ -325,35 +325,32 @@ Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames, dimVals
     fileName, dimVals, groupNames, xBreaks = x_breaks, xLab = x_labs
   )
   
-  # 2. fit models for each group
   mcmc_out <- vector("list", length(groupNames))
   samples <- vector("list", length(groupNames))
   
   for (i in 1:length(groupNames)) {
+    
+    # 2. fit models for each group
     mcmc_out[[i]] <- Run_Model(data_list[[1]][[i]], modelName, groupNames[i], modelFile, params)
     samples[[i]] <- mcmc_out[[i]]$samples
-  }
-
-  # 3. plot gradients + posteriors
-  density_fig <- Plot_Densities(samples, modelName, groupNames, HDIparams)
-  fig_panel <- data_list[[2]] + density_fig + plot_layout(widths = c(1, 1.75), guides = "collect")
-  ggsave(paste0(file_name_root, modelName, "-density", graph_file_type), fig_panel, 
-         "jpeg", height = gg_height, width = gg_width*2.5, units = "cm", dpi = dpi)
-  
-  
-  for (i in 1:length(groupNames)) {
     
-    # 4. HDIS and posterior summary stats for the group parameters 
+    # 3. HDIS and posterior summary stats for the group parameters 
     Get_HDIs(samples[[i]], modelName, groupNames[i], HDIparams, rope_low, rope_high, 
              hdiLim = hdi_limit, propPost = 1)
     
-    # 5. plot posterior predictives
+    # 4. plot posterior predictives
     Posterior_Preds(samples[[i]], as.vector(t(data_list[[1]][[i]]$responses)), 
                     modelName, groupNames[i], dimVals,
                     data_list[[1]][[i]]$nSubj, unique(data_list[[1]][[i]]$subj),
                     nSamp, data_list[[1]][[i]]$nStim, as.data.frame(mcmc_out[[i]]$summary), 
                     nRow, figMult)
   }
+
+  # 5. plot gradients + posteriors
+  density_fig <- Plot_Densities(samples, modelName, groupNames, HDIparams)
+  fig_panel <- data_list[[2]] + density_fig + plot_layout(widths = c(1, 1.75), guides = "collect")
+  ggsave(paste0(file_name_root, modelName, "-density", graph_file_type), fig_panel, 
+         "jpeg", height = gg_height, width = gg_width*2.5, units = "cm", dpi = dpi)
   
   # return output list
   out <- list(data_list[[1]], data_list[[2]], mcmc_out, samples, density_fig)

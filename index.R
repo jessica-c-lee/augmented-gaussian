@@ -64,7 +64,7 @@ Simulate_Data(nSubj = 9, nGroups = 3, dimVals = dim_vals,
               WM = c(0.2, 0.2, 0.2), WP = c(0.4, 0.4, 0.4), 
               Noise = 2, fileName = "demo_data")
 
-file_name_root <- paste0("output/", "demo", "-")
+file_name_root <- paste0("output/")
 
 augG_out <- Fit_Aug_Gaussian(fileName = "data/demo_data.csv",
                              modelFile = "models/AugGaus.stan",
