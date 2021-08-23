@@ -73,5 +73,4 @@ augG_out <- Fit_Aug_Gaussian(fileName = "data/demo_data.csv",
                              dimVals = dim_vals,
                              params = augG_params, HDIparams = augG_group_params,
                              ropeLow = rope_low, ropeHigh = rope_high, nSamp = n_samp,
-                             ropeLowDiffs = rope_low_diffs, ropeHighDiffs = rope_high_diffs,
                              hdiLim = hdi_limit, nRow = n_facet_rows, figMult = fig_mult)
