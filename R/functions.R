@@ -327,7 +327,7 @@ Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames, dimVals
   
   # 2. fit models for each group
   mcmc_out <- vector("list", length(groupNames))
-  
+  samples <- vector("list", length(groupNames))
   
   for (i in 1:length(groupNames)) {
     mcmc_out[[i]] <- Run_Model(data_list[[1]][[i]], modelName, groupNames[i], modelFile, params)
