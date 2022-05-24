@@ -231,6 +231,45 @@ Get_HDIs <- function(samples, modelName, groupName, HDIparams, ropeLow, ropeHigh
 
 #_______________________________________________________________________________
 
+Get_HDIs_diff <- function(samples_1, samples_2, modelName, HDIparams, ropeLow, ropeHigh, 
+                          hdiLim, propPost) {
+  
+  # This function calculates the Highest Density Intervals and 
+  # p(Region of Practical Equivalence) for HDIparams for differences between 
+  # samples_1 and samples_2
+  # Note:
+  # - ROPE parameters must be of length(HDIparams) and specified in the 
+  # same order as HDIparams
+  # - hdiLim sets the limit for the HDI
+  # - propPost refers to the proportion of the posterior used to calculate p(direction) and p(ROPE)
+  # - modelName should describe the group comparison being made when there are > 2 groups (e.g., easyVhard)
+  
+  diff_m <- as.vector(samples_1$M_group) - c(as.vector(samples_2$M_group))
+  diff_wplus <- as.vector(samples_1$SDPlus_group) - c(as.vector(samples_2$SDPlus_group))
+  diff_wminus <- as.vector(samples_1$SDMinus_group) - c(as.vector(samples_2$SDMinus_group))
+  diff_h <- as.vector(samples_1$height_group) - c(as.vector(samples_2$height_group))
+  samples_diffs <- as.data.frame(cbind(diff_m, diff_wplus, diff_wminus, diff_h))
+  colnames(samples_diffs) <- groupParams
+  temp <- data.frame(param = groupParams,
+                     hdi_lim = hdiLim,
+                     hdi_low = rep(NA, length(groupParams)),
+                     hdi_high = rep(NA, length(groupParams)),
+                     p_dir = rep(NA, length(groupParams)),
+                     rope_low = ropeLowDiffs,
+                     rope_high = ropeHighDiffs, 
+                     prop_rope = rep(NA, length(groupParams)))
+  for (i in 1:length(groupParams)) {
+    temp$hdi_low[i] <- hdi(as.vector(samples_diffs[[groupParams[i]]]), ci = hdiLim)$CI_low
+    temp$hdi_high[i] <- hdi(as.vector(samples_diffs[[groupParams[i]]]), ci = hdiLim)$CI_high
+    temp$p_dir[i] <- p_direction(as.vector(samples_diffs[[groupParams[i]]]), ci = propPost)
+    temp$prop_rope[i] <- rope(as.vector(samples_diffs[[groupParams[i]]]), ci = propPost,
+                              range = c(temp$rope_low[i], temp$rope_high[i]))$ROPE_Percentage
+  }
+  write_csv(format(temp, scientific = FALSE), paste0(file_name_root, modelName, "-", "group_diff_hdis.csv"))
+}
+
+#_______________________________________________________________________________
+
 Posterior_Preds <- function(samples, responses, modelName, groupName, dimVals, 
                             nSubj, subjList, nSamp, nStim, summary, 
                             nRow = nRow, figMult, labels = TRUE) {
@@ -345,16 +384,25 @@ Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames, dimVals
                     nSamp, data_list[[1]][[i]]$nStim, as.data.frame(mcmc_out[[i]]$summary), 
                     nRow, figMult)
   }
-
-  # 5. plot gradients + posteriors
+  
+  # HDIs and posterior summary stats for group differences
+  if (length(groupNames) == 2) {
+    Get_HDIs_diff(samples[[i]], modelName, HDIparams, rope_low, rope_high, 
+                  hdiLim = hdi_limit, propPost = 1)
+  } else if (length(groupNames) > 2) {
+    samples_diffs <- NA
+    print("Call Get_HDIs_diff function for each group comparison")
+  }
+  
+  # 6. plot gradients + posteriors
   density_fig <- Plot_Densities(samples, modelName, groupNames, HDIparams)
   fig_panel <- data_list[[2]] + density_fig + plot_layout(widths = c(1, 1.75), guides = "collect")
   ggsave(paste0(file_name_root, modelName, "-density", graph_file_type), fig_panel, 
          "jpeg", height = gg_height, width = gg_width*2.5, units = "cm", dpi = dpi)
   
   # return output list
-  out <- list(data_list[[1]], data_list[[2]], mcmc_out, samples, density_fig)
-  names(out) <- c("data_lists", "gradients", "mcmc_out", "samples", "density_fig")
+  out <- list(data_list[[1]], data_list[[2]], mcmc_out, samples, density_fig, samples_diffs)
+  names(out) <- c("data_lists", "gradients", "mcmc_out", "samples", "density_fig", "samples_diffs")
   return(out)
 }
 
