@@ -21,13 +21,16 @@ dim_vals <- seq(-.5, +.5, .05) # dimension values, CS+ should be at 0
 
 # mcmc parameters
 n_chains <- 4
-n_iter <- 20000
+n_iter <- 15000
 n_burnin <- 1000
 n_thin <- 1
 n_samp <- 50
 hdi_limit <- .95
 rope_low <- c(-.05, .1, .1, 70) # ROPE limits for raw parameters (M, W-, W+, H)
 rope_high <- c(+.05, .2, .2, 80)
+rope_low_diffs <- c(-.05, -.05, -.05, -2.5) # ROPE limits for group diffs, potentially meaningless (M, W-, W+, H)
+rope_high_diffs <- abs(rope_low_diffs)
+
 augG_params <- c("M", "SDPlus", "SDMinus", "height", "noise", "predR", "log_lik",
                  "M_group", "SDPlus_group", "SDMinus_group", "height_group")
 augG_group_params <- c("M_group", "SDPlus_group", "SDMinus_group", "height_group")
@@ -43,8 +46,8 @@ gg_width <- 10
 dpi <- 600
 n_facet_rows <- 3
 fig_mult <- 1.5
-x_breaks <- 1:11 # number of breaks on stimulus dimension
-x_labs <- c(min(dim_vals), rep("", 4), "CS+", rep("", 4), max(dim_vals)) # labels on stimulus dimension (length should match x_breaks)
+x_breaks <- dim_vals # number of breaks on stimulus dimension
+x_labs <- c(min(dim_vals), rep("", 9), "CS+", rep("", 9), max(dim_vals)) # labels on stimulus dimension (length should match x_breaks)
 group_names <- c("group1", "group2", "group3")
 fig_shapes <- c(21, 24, 22) # length should match group_names
 density_cols <- c("#301A4B", "#6DB1BF", "#D4775E") # length should match group_names
@@ -59,8 +62,8 @@ source("R/functions.R")
 
 # ------------------------------------------------------------------------------
 # example
-Simulate_Data(nSubj = 9, nGroups = 3, dimVals = dim_vals, 
-              M = c(0.1, 0, 0.1), H = c(80, 75, 70), 
+Simulate_Data(nSubj = 10, nGroups = 3, dimVals = dim_vals, 
+              M = c(0, 0, 0.1), H = c(80, 75, 70), 
               WM = c(0.2, 0.2, 0.2), WP = c(0.4, 0.4, 0.4), 
               Noise = 2, fileName = "demo_data")
 
@@ -72,5 +75,7 @@ augG_out <- Fit_Aug_Gaussian(fileName = "data/demo_data.csv",
                              groupNames = group_names,
                              dimVals = dim_vals,
                              params = augG_params, HDIparams = augG_group_params,
-                             ropeLow = rope_low, ropeHigh = rope_high, nSamp = n_samp,
+                             ropeLow = rope_low, ropeHigh = rope_high, 
+                             ropeLowDiffs = rope_low_diffs, ropeHighDiffs = rope_high_diffs,
+                             nSamp = n_samp, xBreaks = x_breaks, xLab = x_labs,
                              hdiLim = hdi_limit, nRow = n_facet_rows, figMult = fig_mult)

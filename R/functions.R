@@ -83,7 +83,7 @@ Read_Gen_Data <- function(fileName, dimVals, groupNames, xBreaks, xLab) {
   layers <- list(
     geom_line(size = 1.5),
     geom_point(shape = rep(fig_shapes, each=length(dimVals)), fill = "white", size = 2),
-    geom_vline(xintercept = 6, linetype = "dotted", colour = "grey"),
+    geom_vline(xintercept = 0, linetype = "dotted", colour = "grey"),
     scale_x_continuous(limits = c(min(dimVals), max(dimVals)), breaks = xBreaks, labels = xLab),
     scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)),
     scale_colour_manual(values = density_cols),
@@ -199,7 +199,7 @@ Plot_Densities <- function(samples, modelName, groupNames, paramNames) {
 #_______________________________________________________________________________
 
 Get_HDIs <- function(samples, modelName, groupName, HDIparams, ropeLow, ropeHigh, 
-                     hdiLim, propPost) {
+                     hdiLim, propPost = 1) {
   
   # This function calculates the Highest Density Intervals and 
   # p(Region of Practical Equivalence) for HDIparams
@@ -231,8 +231,8 @@ Get_HDIs <- function(samples, modelName, groupName, HDIparams, ropeLow, ropeHigh
 
 #_______________________________________________________________________________
 
-Get_HDIs_diff <- function(samples_1, samples_2, modelName, HDIparams, ropeLow, ropeHigh, 
-                          hdiLim, propPost) {
+Get_HDIs_diff <- function(samples_1, samples_2, modelName, comparison,
+                          HDIparams, ropeLowDiffs, ropeHighDiffs, hdiLim, propPost = 1) {
   
   # This function calculates the Highest Density Intervals and 
   # p(Region of Practical Equivalence) for HDIparams for differences between 
@@ -242,30 +242,31 @@ Get_HDIs_diff <- function(samples_1, samples_2, modelName, HDIparams, ropeLow, r
   # same order as HDIparams
   # - hdiLim sets the limit for the HDI
   # - propPost refers to the proportion of the posterior used to calculate p(direction) and p(ROPE)
-  # - modelName should describe the group comparison being made when there are > 2 groups (e.g., easyVhard)
   
   diff_m <- as.vector(samples_1$M_group) - c(as.vector(samples_2$M_group))
   diff_wplus <- as.vector(samples_1$SDPlus_group) - c(as.vector(samples_2$SDPlus_group))
   diff_wminus <- as.vector(samples_1$SDMinus_group) - c(as.vector(samples_2$SDMinus_group))
   diff_h <- as.vector(samples_1$height_group) - c(as.vector(samples_2$height_group))
-  samples_diffs <- as.data.frame(cbind(diff_m, diff_wplus, diff_wminus, diff_h))
-  colnames(samples_diffs) <- groupParams
-  temp <- data.frame(param = groupParams,
+  sample_diffs <- as.data.frame(cbind(diff_m, diff_wplus, diff_wminus, diff_h))
+  colnames(sample_diffs) <- HDIparams
+  temp <- data.frame(param = HDIparams,
                      hdi_lim = hdiLim,
-                     hdi_low = rep(NA, length(groupParams)),
-                     hdi_high = rep(NA, length(groupParams)),
-                     p_dir = rep(NA, length(groupParams)),
+                     hdi_low = rep(NA, length(HDIparams)),
+                     hdi_high = rep(NA, length(HDIparams)),
+                     p_dir = rep(NA, length(HDIparams)),
                      rope_low = ropeLowDiffs,
                      rope_high = ropeHighDiffs, 
-                     prop_rope = rep(NA, length(groupParams)))
-  for (i in 1:length(groupParams)) {
-    temp$hdi_low[i] <- hdi(as.vector(samples_diffs[[groupParams[i]]]), ci = hdiLim)$CI_low
-    temp$hdi_high[i] <- hdi(as.vector(samples_diffs[[groupParams[i]]]), ci = hdiLim)$CI_high
-    temp$p_dir[i] <- p_direction(as.vector(samples_diffs[[groupParams[i]]]), ci = propPost)
-    temp$prop_rope[i] <- rope(as.vector(samples_diffs[[groupParams[i]]]), ci = propPost,
+                     prop_rope = rep(NA, length(HDIparams)))
+  for (i in 1:length(HDIparams)) {
+    temp$hdi_low[i] <- hdi(as.vector(sample_diffs[[HDIparams[i]]]), ci = hdiLim)$CI_low
+    temp$hdi_high[i] <- hdi(as.vector(sample_diffs[[HDIparams[i]]]), ci = hdiLim)$CI_high
+    temp$p_dir[i] <- p_direction(as.vector(sample_diffs[[HDIparams[i]]]), ci = propPost)
+    temp$prop_rope[i] <- rope(as.vector(sample_diffs[[HDIparams[i]]]), ci = propPost,
                               range = c(temp$rope_low[i], temp$rope_high[i]))$ROPE_Percentage
   }
-  write_csv(format(temp, scientific = FALSE), paste0(file_name_root, modelName, "-", "group_diff_hdis.csv"))
+  write_csv(format(temp, scientific = FALSE), 
+            paste0(file_name_root, modelName, "-", comparison, "-hdis.csv"))
+  return(sample_diffs)
 }
 
 #_______________________________________________________________________________
@@ -354,14 +355,15 @@ Posterior_Preds <- function(samples, responses, modelName, groupName, dimVals,
 
 #_______________________________________________________________________________
 Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames, dimVals, params, 
-                             HDIparams, ropeLow, ropeHigh, hdiLim = .95, propPost = 1, 
+                             HDIparams, ropeLow, ropeHigh, ropeLowDiffs, ropeHighDiffs,
+                             hdiLim = .95, propPost = 1, 
                              nSamp, xBreaks, xLab, nRow, figMult = 2, labels = TRUE) {
   
   # Master function that reads the data file, runs the analysis, and saves output
   
   # 1. read data
   data_list <- Read_Gen_Data(
-    fileName, dimVals, groupNames, xBreaks = x_breaks, xLab = x_labs
+    fileName, dimVals, groupNames, xBreaks, xLab
   )
   
   mcmc_out <- vector("list", length(groupNames))
@@ -374,8 +376,7 @@ Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames, dimVals
     samples[[i]] <- mcmc_out[[i]]$samples
     
     # 3. HDIS and posterior summary stats for the group parameters 
-    Get_HDIs(samples[[i]], modelName, groupNames[i], HDIparams, rope_low, rope_high, 
-             hdiLim = hdi_limit, propPost = 1)
+    Get_HDIs(samples[[i]], modelName, groupNames[i], HDIparams, ropeLow, ropeHigh, hdi_limit)
     
     # 4. plot posterior predictives
     Posterior_Preds(samples[[i]], as.vector(t(data_list[[1]][[i]]$responses)), 
@@ -385,11 +386,19 @@ Fit_Aug_Gaussian <- function(fileName, modelFile, modelName, groupNames, dimVals
                     nRow, figMult)
   }
   
-  # HDIs and posterior summary stats for group differences
+  # 5. HDIs and posterior summary stats for group differences
   if (length(groupNames) == 2) {
-    Get_HDIs_diff(samples[[i]], modelName, HDIparams, rope_low, rope_high, 
-                  hdiLim = hdi_limit, propPost = 1)
-  } else if (length(groupNames) > 2) {
+    samples_diffs <- Get_HDIs_diff(samples[[1]], samples[[2]], modelName, paste0(groupNames[1], groupNames[2]),
+                  HDIparams, ropeLowDiffs, ropeHighDiffs, hdi_limit)
+  } else if (length(groupNames) == 3) {
+    samples_diffs <- list()
+    for (i in 1:length(groupNames)) {
+      idx2 <- ifelse(i==3, 1, i+1)
+      samples_diffs[[i]] <- Get_HDIs_diff(samples[[i]], samples[[idx2]], modelName, 
+                                          paste0(groupNames[i], "V", groupNames[idx2]),
+                                          HDIparams, ropeLowDiffs, ropeHighDiffs, hdi_limit)
+    }
+  } else {
     samples_diffs <- NA
     print("Call Get_HDIs_diff function for each group comparison")
   }
